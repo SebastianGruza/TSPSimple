@@ -5,27 +5,27 @@ import com.tsp.solver.data.DistanceMatrix;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DFS {
+public class DFS implements Calculation {
 
     private int minDist = Integer.MAX_VALUE;
     private List<Integer> bestPath;
     private DistanceMatrix distanceMatrix;
     private int n;
 
-    public DFS(DistanceMatrix distanceMatrix, int n) {
+    public DFS(int n, DistanceMatrix distanceMatrix, int[] path) {
         this.distanceMatrix = distanceMatrix;
         this.n = n;
         bestPath = new ArrayList<>();
     }
 
-    public List<Integer> DFSCalculate(List<Integer> DFSResults) {
+    public void calculation(List<Integer> DFSResults, List<int[]> bestPathDFS) {
         boolean[] visitedDFS = new boolean[n];
         List<Integer> pathDFS = new ArrayList<>();
         visitedDFS[0] = true;
         pathDFS.add(0);
         dfs(0, 0, n, distanceMatrix.getMatrix(), visitedDFS, pathDFS);
         DFSResults.add(minDist);
-        return pathDFS;
+        bestPathDFS.add(pathDFS.stream().mapToInt(i->i).toArray());
     }
 
     private void dfs(int currPos, int currDist, int n, int[][] dist, boolean[] visited, List<Integer> path) {

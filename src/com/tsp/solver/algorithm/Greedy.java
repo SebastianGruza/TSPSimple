@@ -5,19 +5,21 @@ import com.tsp.solver.data.DistanceMatrix;
 import java.util.Arrays;
 import java.util.List;
 
-public class Greedy {
+public class Greedy implements  Calculation {
 
     private int n;
     private DistanceMatrix distanceMatrix;
+    int start;
 
-    public Greedy(int n, DistanceMatrix distanceMatrix) {
+    public Greedy(int n, DistanceMatrix distanceMatrix, int[] path, int start) {
         this.n = n;
         this.distanceMatrix = distanceMatrix;
+        this.start = start;
     }
 
     private static Integer bestPathGreedyDistances = Integer.MAX_VALUE;
 
-    public void greedyCalculate(int start, List<Integer> greedyResults, List<int[]> bestPathGreedy) {
+    public void calculation(List<Integer> greedyResults, List<int[]> bestPathGreedy) {
         boolean[] visited = new boolean[n];
         int[] path = new int[n + 1];
         int[] bestPath = new int[n];

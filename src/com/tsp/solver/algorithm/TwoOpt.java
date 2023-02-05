@@ -1,13 +1,23 @@
 package com.tsp.solver.algorithm;
 
-public class TwoOpt {
+import com.tsp.solver.data.DistanceMatrix;
+import java.util.List;
 
-    int[][] dist;
+public class TwoOpt implements  Calculation {
+
+    DistanceMatrix distanceMatrix;
     int[] path;
 
-    public TwoOpt(int[][] dist, int[] path) {
-        this.dist = dist;
+    public TwoOpt(int n, DistanceMatrix distanceMatrix, int[] path, int start) {
+        this.distanceMatrix = distanceMatrix;
         this.path = path;
+    }
+
+    public void calculation(List<Integer> twoOptResults, List<int[]> bestPathTwoOpt) {
+        int[] path = this.twoOpt();
+        int best = this.getPathDistance(path);
+        twoOptResults.add(best);
+        bestPathTwoOpt.add(path);
     }
 
     public int[] twoOpt() {
@@ -49,9 +59,9 @@ public class TwoOpt {
         int n = path.length;
         int totalDist = 0;
         for (int i = 0; i < n - 1; i++) {
-            totalDist += dist[path[i]][path[i + 1]];
+            totalDist += distanceMatrix.getMatrix()[path[i]][path[i + 1]];
         }
-        totalDist += dist[path[n - 1]][path[0]];
+        totalDist += distanceMatrix.getMatrix()[path[n - 1]][path[0]];
         return totalDist;
     }
 }

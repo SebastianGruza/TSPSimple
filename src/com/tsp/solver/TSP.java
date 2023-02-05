@@ -1,19 +1,15 @@
 package com.tsp.solver;
 
-import com.tsp.solver.algorithm.DFS;
-import com.tsp.solver.algorithm.Greedy;
-import com.tsp.solver.algorithm.TwoOpt;
+import com.tsp.solver.algorithm.*;
 import com.tsp.solver.data.DistanceMatrix;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 class TSP {
 
     public static List<DistanceMatrix> generateDistances(int n, int repeat) {
         List<DistanceMatrix> distances = new ArrayList<>();
-        Random r = new Random();
         for (int i = 0; i < repeat; i++) {
             // Generowanie symetrycznej macierzy odległości
             DistanceMatrix distanceMatrix = new DistanceMatrix(n);
@@ -31,81 +27,70 @@ class TSP {
         calculateTSPAlgorithm(160, 320, false, 8);
     }
 
+    private static void process(Calculation[] algorithm, int repeat, int n, List<Integer> greedyResultsSimple, List<int[]> bestPathGreedy) {
+        long startTime = System.currentTimeMillis();
+        for (int i = 0; i < repeat; i++) {
+            algorithm[i].calculation(greedyResultsSimple, bestPathGreedy);
+        }
+        long endTime = System.currentTimeMillis();
+        long totalTime = endTime - startTime;
+        System.out.println("Czas wykonywania " + algorithm.getClass().getName() + " dla n = " + n + " : " + totalTime + "ms");
+    }
+
     private static void calculateTSPAlgorithm(int start, int end, boolean isDFS, int step) {
         int repeat = 1000;
         for (int n = start; n < end; n += step) {
-            List<Integer> greedyResultsSimple = new ArrayList<>();
-            List<Integer> DFSResultsSimple = new ArrayList<>();
-            List<int[]> bestPathGreedy = new ArrayList<>();
+            // Przygotowanie danych:
             List<DistanceMatrix> distances = generateDistances(n, repeat);
-            long startTime = System.currentTimeMillis();
-            for (int i = 0; i < repeat; i++) {
-                Greedy greedy = new Greedy(n, distances.get(i));
-                greedy.greedyCalculate(0, greedyResultsSimple, bestPathGreedy);
+            List<List<Integer>> results = new ArrayList<>();
+            List<List<int[]>> paths = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
+                results.add(new ArrayList<>());
+                paths.add(new ArrayList<>());
             }
-            long endTime = System.currentTimeMillis();
-            long totalTime = endTime - startTime;
-            System.out.println("Czas wykonywania greedySimple  dla n = " + n + " : " + totalTime + "ms");
 
-
-            List<Integer> greedyResultsComplex = new ArrayList<>();
-            List<int[]> bestPathGreedyComplex = new ArrayList<>();
-            startTime = System.currentTimeMillis();
+            // Algorytm zachłanny:
+            Greedy[] greedy = new Greedy[repeat];
             for (int i = 0; i < repeat; i++) {
-                Integer best = Integer.MAX_VALUE / 2;
-                int[] bestPath = new int[n];
-                for (int j = 0; j < n; j++) {
-                    List<Integer> greedyResultsOneCity = new ArrayList<>();
-                    List<int[]> bestPathGreedyOneCity = new ArrayList<>();
-                    Greedy greedy = new Greedy(n, distances.get(i));
-                    greedy.greedyCalculate(j, greedyResultsOneCity, bestPathGreedyOneCity);
-                    for (Integer k = 0; k < greedyResultsOneCity.size(); k++) {
-                        Integer result = greedyResultsOneCity.get(k);
-                        if (best > result) {
-                            best = result;
-                            bestPath = bestPathGreedyOneCity.get(k);
-                        }
-                    }
-                }
-                greedyResultsComplex.add(best);
-                bestPathGreedyComplex.add(bestPath);
+                greedy[i] = new Greedy(n, distances.get(i), null, 0);
             }
-            endTime = System.currentTimeMillis();
-            totalTime = endTime - startTime;
-            System.out.println("Czas wykonywania greedyComplex  dla n = " + n + " : " + totalTime + "ms");
+            process(greedy, repeat, n, results.get(0), paths.get(0));
 
-            List<Integer> twoOptResults = new ArrayList<>();
-            startTime = System.currentTimeMillis();
+            // Algorytm zachłanny ze zmiennym startem:
+            GreedyComplex[] greedyComplex = new GreedyComplex[repeat];
             for (int i = 0; i < repeat; i++) {
-                TwoOpt twoOpt = new TwoOpt(distances.get(i).getMatrix(), bestPathGreedy.get(i));
-                int[] path = twoOpt.twoOpt();
-                int best = twoOpt.getPathDistance(path);
-                twoOptResults.add(best);
+                greedyComplex[i] = new GreedyComplex(n, distances.get(i), null, 0);
             }
-            endTime = System.currentTimeMillis();
-            totalTime = endTime - startTime;
-            System.out.println("Czas wykonywania twoOpt  dla n = " + n + " : " + totalTime + "ms");
+            process(greedyComplex, repeat, n, results.get(1), paths.get(1));
 
+            // Algorytm 2-opt, korzystający z wyniku algorytmu zachłannego ze zmiennym startem:
+            TwoOpt[] twoOpt = new TwoOpt[repeat];
+            for (int i = 0; i < repeat; i++) {
+                twoOpt[i] = new TwoOpt(n, distances.get(i), paths.get(1).get(i), 0);
+            }
+            process(twoOpt, repeat, n, results.get(2), paths.get(2));
+
+            // Algorytm DFS, tylko dla małych n:
             if (isDFS) {
-                startTime = System.currentTimeMillis();
+                DFS[] dfs = new DFS[repeat];
                 for (int i = 0; i < repeat; i++) {
-                    DFS dfs = new DFS(distances.get(i), n);
-                    dfs.DFSCalculate(DFSResultsSimple);
+                    dfs[i] = new DFS(n, distances.get(i), null);
                 }
-                endTime = System.currentTimeMillis();
-                totalTime = endTime - startTime;
-                System.out.println("Czas wykonywania            DFS   dla n = " + n + " : " + totalTime + "ms");
+                process(dfs, repeat, n, results.get(3), paths.get(3));
+
             }
-            Double greedyMean = (1.0 * greedyResultsSimple.stream().reduce(0, Integer::sum) / repeat);
-            Double greedyComplexMean = (1.0 * greedyResultsComplex.stream().reduce(0, Integer::sum) / repeat);
-            Double twoOptMean = (1.0 * twoOptResults.stream().reduce(0, Integer::sum) / repeat);
+
+            // Drukowanie statystyk:
+            Double greedyMean = (1.0 * results.get(0).stream().reduce(0, Integer::sum) / repeat);
+            Double greedyComplexMean = (1.0 * results.get(1).stream().reduce(0, Integer::sum) / repeat);
+            Double twoOptMean = (1.0 * results.get(2).stream().reduce(0, Integer::sum) / repeat);
             System.out.println("n = " + n + ", średnia zachłannym = " + greedyMean);
             System.out.println("n = " + n + ", śr zach ze zm p st = " + greedyComplexMean);
             System.out.println("n = " + n + ",    2-opt           = " + twoOptMean);
             System.out.println("n = " + n + ",   poprawa greedyComplex/greedy % = " + (1.0 - greedyComplexMean / greedyMean) * 100);
             System.out.println("n = " + n + ",   poprawa  2-opt/greedyComplex % = " + (1.0 - twoOptMean / greedyComplexMean) * 100);
             if (isDFS) {
-                Double DFSMean = (1.0 * DFSResultsSimple.stream().reduce(0, Integer::sum) / repeat);
+                Double DFSMean = (1.0 * results.get(3).stream().reduce(0, Integer::sum) / repeat);
                 System.out.println("n = " + n + ", średnia       DFS  = " + DFSMean);
                 System.out.println("n = " + n + ",   poprawa DFS/greedy        % = " + (1.0 - DFSMean / greedyMean) * 100);
                 System.out.println("n = " + n + ",   poprawa DFS/greedyComplex % = " + (1.0 - DFSMean / greedyComplexMean) * 100);
