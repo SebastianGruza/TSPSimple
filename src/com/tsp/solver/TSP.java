@@ -1,6 +1,9 @@
 package com.tsp.solver;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
 
 class DistanceMatrix {
 
@@ -31,6 +34,7 @@ class DistanceMatrix {
 class TSP {
     private static int minDist = Integer.MAX_VALUE;
     private static List<Integer> bestPath = new ArrayList<>();
+    private static Integer bestPathGreedyDistances = Integer.MAX_VALUE;
     private static List<Integer> pathDFS = new ArrayList<>();
 
     public static List<DistanceMatrix> generateDistances(int n, int repeat) {
@@ -45,9 +49,11 @@ class TSP {
         return distances;
     }
 
-    private static void greedyCalculate(int start, int n, List<Integer> greedyResults, DistanceMatrix distanceMatrix) {
+    private static void greedyCalculate(int start, int n, List<Integer> greedyResults, List<int[]> bestPathGreedy, DistanceMatrix distanceMatrix) {
         boolean[] visited = new boolean[n];
         int[] path = new int[n + 1];
+        int[] bestPath = new int[n];
+        bestPathGreedyDistances = Integer.MAX_VALUE;
         path[0] = start;
         visited[start] = true;
         int curr = start;
@@ -65,9 +71,14 @@ class TSP {
 
         int total = 0;
         for (int i = 0; i < path.length - 1; i++) {
-            total += distanceMatrix.getMatrix()[path[i]][path[i+1]];
+            total += distanceMatrix.getMatrix()[path[i]][path[i + 1]];
+        }
+        if (total < bestPathGreedyDistances) {
+            bestPathGreedyDistances = total;
+            bestPath = Arrays.copyOf(path, path.length - 1);
         }
         greedyResults.add(total);
+        bestPathGreedy.add(bestPath);
     }
 
     private static void DFSCalculate(int n, List<Integer> DFSResults, DistanceMatrix distanceMatrix) {
@@ -79,19 +90,23 @@ class TSP {
     }
 
     public static void main(String[] args) {
-        calculateTSPAlgorithm(3, 13, true);
-        calculateTSPAlgorithm(13, 100, false);
+        calculateTSPAlgorithm(3, 14, true, 1);
+        calculateTSPAlgorithm(14, 40, false, 1);
+        calculateTSPAlgorithm(40, 80, false, 2);
+        calculateTSPAlgorithm(80, 160, false, 4);
+        calculateTSPAlgorithm(160, 320, false, 8);
     }
 
-    private static void calculateTSPAlgorithm(int start, int end, boolean isDFS) {
-        int repeat = 10000;
-        for (int n = start; n < end; n++) {
+    private static void calculateTSPAlgorithm(int start, int end, boolean isDFS, int step) {
+        int repeat = 1000;
+        for (int n = start; n < end; n += step) {
             List<Integer> greedyResultsSimple = new ArrayList<>();
             List<Integer> DFSResultsSimple = new ArrayList<>();
+            List<int[]> bestPathGreedy = new ArrayList<>();
             List<DistanceMatrix> distances = generateDistances(n, repeat);
             long startTime = System.currentTimeMillis();
             for (int i = 0; i < repeat; i++) {
-                greedyCalculate(0, n, greedyResultsSimple, distances.get(i));
+                greedyCalculate(0, n, greedyResultsSimple, bestPathGreedy, distances.get(i));
             }
             long endTime = System.currentTimeMillis();
             long totalTime = endTime - startTime;
@@ -99,23 +114,40 @@ class TSP {
 
 
             List<Integer> greedyResultsComplex = new ArrayList<>();
+            List<int[]> bestPathGreedyComplex = new ArrayList<>();
             startTime = System.currentTimeMillis();
             for (int i = 0; i < repeat; i++) {
                 Integer best = Integer.MAX_VALUE / 2;
+                int[] bestPath = new int[n];
                 for (int j = 0; j < n; j++) {
                     List<Integer> greedyResultsOneCity = new ArrayList<>();
-                    greedyCalculate(j, n, greedyResultsOneCity, distances.get(i));
-                    for (Integer result : greedyResultsOneCity) {
+                    List<int[]> bestPathGreedyOneCity = new ArrayList<>();
+                    greedyCalculate(j, n, greedyResultsOneCity, bestPathGreedyOneCity, distances.get(i));
+                    for (Integer k = 0; k < greedyResultsOneCity.size(); k++) {
+                        Integer result = greedyResultsOneCity.get(k);
                         if (best > result) {
                             best = result;
+                            bestPath = bestPathGreedyOneCity.get(k);
                         }
                     }
                 }
                 greedyResultsComplex.add(best);
+                bestPathGreedyComplex.add(bestPath);
             }
             endTime = System.currentTimeMillis();
             totalTime = endTime - startTime;
             System.out.println("Czas wykonywania greedyComplex  dla n = " + n + " : " + totalTime + "ms");
+
+            List<Integer> twoOptResults = new ArrayList<>();
+            startTime = System.currentTimeMillis();
+            for (int i = 0; i < repeat; i++) {
+                int[] path = twoOpt(bestPathGreedy.get(i), distances.get(i).getMatrix());
+                int best = getPathDistance(path, distances.get(i).getMatrix());
+                twoOptResults.add(best);
+            }
+            endTime = System.currentTimeMillis();
+            totalTime = endTime - startTime;
+            System.out.println("Czas wykonywania twoOpt  dla n = " + n + " : " + totalTime + "ms");
 
             if (isDFS) {
                 startTime = System.currentTimeMillis();
@@ -131,15 +163,20 @@ class TSP {
             }
             Double greedyMean = (1.0 * greedyResultsSimple.stream().reduce(0, Integer::sum) / repeat);
             Double greedyComplexMean = (1.0 * greedyResultsComplex.stream().reduce(0, Integer::sum) / repeat);
+            Double twoOptMean = (1.0 * twoOptResults.stream().reduce(0, Integer::sum) / repeat);
             System.out.println("n = " + n + ", średnia zachłannym = " + greedyMean);
             System.out.println("n = " + n + ", śr zach ze zm p st = " + greedyComplexMean);
-            System.out.println("n = " + n + ",   stosunek greedyComplex/greedy = " + greedyComplexMean/greedyMean);
+            System.out.println("n = " + n + ",    2-opt           = " + twoOptMean);
+            System.out.println("n = " + n + ",   poprawa greedyComplex/greedy % = " + (1.0 - greedyComplexMean / greedyMean) * 100);
+            System.out.println("n = " + n + ",   poprawa  2-opt/greedyComplex % = " + (1.0 - twoOptMean / greedyComplexMean) * 100);
             if (isDFS) {
                 Double DFSMean = (1.0 * DFSResultsSimple.stream().reduce(0, Integer::sum) / repeat);
                 System.out.println("n = " + n + ", średnia       DFS  = " + DFSMean);
-                System.out.println("n = " + n + ",   stosunek DFS/greedy        = " + DFSMean / greedyMean);
-                System.out.println("n = " + n + ",   stosunek DFS/greedyComplex = " + DFSMean / greedyComplexMean);
+                System.out.println("n = " + n + ",   poprawa DFS/greedy        % = " + (1.0 - DFSMean / greedyMean) * 100);
+                System.out.println("n = " + n + ",   poprawa DFS/greedyComplex % = " + (1.0 - DFSMean / greedyComplexMean) * 100);
+                System.out.println("n = " + n + ",   poprawa DFS/2-opt         % = " + (1.0 - DFSMean / twoOptMean) * 100);
             }
+            System.out.println("---------------------------------------------");
 
         }
     }
@@ -179,4 +216,50 @@ class TSP {
             }
         }
     }
+
+    public static int[] twoOpt(int[] path, int[][] dist) {
+        int n = path.length;
+        int[] newPath = new int[n];
+        System.arraycopy(path, 0, newPath, 0, n);
+        int bestDist = getPathDistance(newPath, dist);
+
+        for (int i = 0; i < n - 1; i++) {
+            for (int j = i + 1; j < n; j++) {
+                int[] tempPath = swap(newPath, i, j);
+                int tempDist = getPathDistance(tempPath, dist);
+                if (tempDist < bestDist) {
+                    System.arraycopy(tempPath, 0, newPath, 0, n);
+                    bestDist = tempDist;
+                    i = -1;
+                    break;
+                }
+            }
+        }
+
+        return newPath;
+    }
+
+    public static int[] swap(int[] path, int i, int j) {
+        int n = path.length;
+        int[] newPath = new int[n];
+        System.arraycopy(path, 0, newPath, 0, i);
+        int k = i;
+        for (int m = j; m >= i; m--) {
+            newPath[k] = path[m];
+            k++;
+        }
+        System.arraycopy(path, j + 1, newPath, k, n - j - 1);
+        return newPath;
+    }
+
+    public static int getPathDistance(int[] path, int[][] dist) {
+        int n = path.length;
+        int totalDist = 0;
+        for (int i = 0; i < n - 1; i++) {
+            totalDist += dist[path[i]][path[i + 1]];
+        }
+        totalDist += dist[path[n - 1]][path[0]];
+        return totalDist;
+    }
+
 }
