@@ -1,8 +1,8 @@
-package com.tsp.solver;
+package com.tsp.solver.others;
 
 import java.util.Arrays;
 
-public class Main {
+public class PossiblePathsInTSP {
     static int[] path;
     static int total = 0;
 
